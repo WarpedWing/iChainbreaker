@@ -71,9 +71,8 @@ class ItemV7:
             authenticated['SFCiphertext'], authenticated['SFAuthenticationCode']
         )
 
-        if not decrypted:
-            raise ValueError("Failed to decrypt")
-
+        # decrypt_and_verify() raises exceptions on failure, so if we reach here it succeeded
+        # Empty bytes (b'') are valid decrypted data for some items
         return decrypted
 
     def decrypt_metadata(self, metadata_class_key):
@@ -90,8 +89,7 @@ class ItemV7:
             wrapped_sf_params['SFCiphertext'], wrapped_sf_params['SFAuthenticationCode']
         )
 
-        if not metadata_key:
-            raise ValueError("Failed to decrypt metadata key")
+        # decrypt_and_verify() raises exceptions on failure, so if we reach here it succeeded
 
         ciphertext = ns_keyed_unarchiver(
             readPlistFromString(self.protobuf_item.encryptedMetadata.ciphertext)
@@ -107,7 +105,5 @@ class ItemV7:
             ciphertext['SFCiphertext'], ciphertext['SFAuthenticationCode']
         )
 
-        if not metadata:
-            raise ValueError("Failed to decrypt metadata")
-
+        # decrypt_and_verify() raises exceptions on failure, so if we reach here it succeeded
         return metadata

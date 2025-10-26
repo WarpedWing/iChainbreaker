@@ -160,7 +160,7 @@ class Keybag:
             wrap_iv_digest.update(unhexlify(self.keybag['salt']))
             key_store_wrap_iv = wrap_iv_digest.digest()[:16]
 
-        dict = {}
+        class_dict = {}
         for t, data in tlvs(self.fbuf[KEYBAG_DATA_SIZE + KEYBAG_HEADER_SIZE : self.endofdata]):
             # if t == 'UUID':
             #     print('%s : %s' % (t, uuid.UUID(bytes=data)))
@@ -168,23 +168,23 @@ class Keybag:
                 print(
                     f" [-] {t} : {get_class_name(int(hexlify(data), 16))} {int(hexlify(data), 16)}"
                 )
-                dict['CLAS'] = int(hexlify(data), 16)
+                class_dict['CLAS'] = int(hexlify(data), 16)
             elif t == 'WRAP':
                 print(f" [-] {t} : {get_wrap_name(int(hexlify(data), 16))}")
-                dict['WRAP'] = int(hexlify(data), 16)
+                class_dict['WRAP'] = int(hexlify(data), 16)
             elif t == 'KTYP':
                 print(f" [-] {t} : {get_key_type(int(hexlify(data), 16))}")
-                dict['KTYP'] = int(hexlify(data), 16)
+                class_dict['KTYP'] = int(hexlify(data), 16)
             elif t == 'WPKY':
                 decryptedkey = b''
 
-                if dict['WRAP'] == 1:
+                if class_dict['WRAP'] == 1:
                     if self.keybag['version'] >= 5:
                         decryptedkey = AESdecryptCBC(data, self.devicekey, key_store_wrap_iv)
                     else:
                         decryptedkey = AESdecryptCBC(data, self.devicekey)
                     print(f" [-] Decrypted Key : {hexlify(decryptedkey)}")
-                elif dict['WRAP'] == 3:
+                elif class_dict['WRAP'] == 3:
                     if self.keybag['version'] >= 5:
                         data = (
                             AESdecryptCBC(data[:32], self.devicekey, key_store_wrap_iv)
@@ -199,7 +199,7 @@ class Keybag:
                     if not unwrapped:
                         # Integrity check failed; skip this class (keybag-level, not tied to any row)
                         print(
-                            f" [!] Failed to unwrap keybag class {dict.get('CLAS', -1)} ({get_class_name(dict.get('CLAS', -1))}); skipping"
+                            f" [!] Failed to unwrap keybag class {class_dict.get('CLAS', -1)} ({get_class_name(class_dict.get('CLAS', -1))}); skipping"
                         )
                         continue
 
@@ -209,7 +209,7 @@ class Keybag:
                         decryptedkey = AESdecryptCBC(unwrapped, self.devicekey)
                     print(f" [-] Decrypted Key : {hexlify(decryptedkey)}")
 
-                self.keyring[dict['CLAS']] = decryptedkey  # Key
+                self.keyring[class_dict['CLAS']] = decryptedkey  # Key
 
     def GetKeybyClass(self, classnum):
         key = b''

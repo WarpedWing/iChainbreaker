@@ -168,6 +168,7 @@ def main():
             'missing_metadatakey': 0,
             'unwrap_fail': 0,
             'gcm_mac_fail': 0,
+            'empty_decrypt': 0,
         }
         for t in tablelist
     }
@@ -312,7 +313,11 @@ def main():
                 # decrypted = gcm_decrypt(unwrappedkey, gcmIV, encrypted_data, data[:sizeof(_EncryptedBlobHeader)], auth_tag)
 
                 if len(decrypted) == 0:
-                    # print(" [-] Decryption Process Failed. Invalid Key or Data is corrupted.")
+                    summary[tablename]['empty_decrypt'] += 1
+                    if export == 0:
+                        print(
+                            f"[!] Empty decrypted data; skipping (table={tablename}, rowid={rowid}, label=unknown)"
+                        )
                     continue
 
                 if export == 0:
@@ -322,11 +327,11 @@ def main():
                 blobparse = BlobParser()
                 record = blobparse.ParseIt(decrypted, tablename, export)
 
-            if export == 1 and 'record' in locals():
+            if export == 1 and record is not None:
                 export_Database(record, export, exportDB, tablename)
                 summary[tablename]['exported'] += 1
                 summary[tablename]['decrypted'] += 1
-            elif export == 0 and ('decrypted' in locals() or encblobheader.version == 7):
+            elif export == 0 and decrypted is not None:
                 summary[tablename]['decrypted'] += 1
 
     if export:
@@ -347,8 +352,10 @@ def main():
         dec_all += s['decrypted']
         exp_all += s['exported']
         print(
-            f" [-] {GetTableFullName(t)}: total={s['total']}, decrypted={s['decrypted']}, exported={s['exported']}, "
-            f"missing_class_key={s['missing_class_key']}, missing_metadatakey={s['missing_metadatakey']}, unwrap_fail={s['unwrap_fail']}, mac_fail={s['gcm_mac_fail']}"
+            f" [-] {GetTableFullName(t)}: total={s['total']}, decrypted={s['decrypted']}, "
+            f"exported={s['exported']}, missing_class_key={s['missing_class_key']}, "
+            f"missing_metadatakey={s['missing_metadatakey']}, unwrap_fail={s['unwrap_fail']}, "
+            f"mac_fail={s['gcm_mac_fail']}, empty_decrypt={s['empty_decrypt']}"
         )
     print(f' [-] Overall: total={total_all}, decrypted={dec_all}, exported={exp_all}')
 
@@ -361,6 +368,7 @@ def handle_decrypted(decrypted, export, tablename):
             # Prefer plain text if the secret looks like UTF-8 text; otherwise hexdump
             if isinstance(v, (bytes, bytearray, memoryview)):
                 raw = bytes(v)
+
                 def _looks_text(b: bytes) -> bool:
                     if not b:
                         return False
