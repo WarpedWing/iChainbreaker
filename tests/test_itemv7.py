@@ -1,11 +1,17 @@
-from binascii import unhexlify, hexlify
+import os
+import sys
+from binascii import hexlify, unhexlify
 from unittest import TestCase
+
+# Ensure project root is on sys.path for direct imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from biplist import Uid
 
 from itemv7 import ItemV7, ns_keyed_unarchiver
 
-ITEM1_DATA = unhexlify("""
+ITEM1_DATA = unhexlify(
+    """
 070000000ae3040a8c0462706c6973743030d40102030405061c1d582476657273696f6e5824
 6f626a65637473592461726368697665725424746f7012000186a0a607081112131455246e75
 6c6cd4090a0b0c0d0e0f105624636c6173735f10165346496e697469616c697a6174696f6e56
@@ -57,14 +63,18 @@ dd7890dadb7c7b1c4f638f630b0313424b618e1d9eee30fe3c70eb74a9d2151617185a24636c
 6d007a0091009300950097009900bc00cf00f200f70102010b0128012c014901570160017201
 75017a000000000000020100000000000000200000000000000000000000000000017c1a2431
 413331434545462d333039312d344642332d393731332d4244433533464245464436321806
-""".replace('\n', ''))
+""".replace('\n', '')
+)
 ITEM1_CLASS_KEY = unhexlify("af41f099b74ef11d2e65bbb63e9a3edca77b02ec2e4dc660b1a17a2783d71464")
-ITEM1_METADATA_CLASS_KEY = unhexlify("c4c8fb488f8d1f69f759cfd5a6250960413c07d68fd580a0661b482381c46be2")
+ITEM1_METADATA_CLASS_KEY = unhexlify(
+    "c4c8fb488f8d1f69f759cfd5a6250960413c07d68fd580a0661b482381c46be2"
+)
+
 
 class ItemV7Tests(TestCase):
     def test_exception_if_version_not_7(self):
-        with self.assertRaisesRegexp(Exception, 'version 7.*not 6'):
-            item = ItemV7("\x06\x00\x00\x00")
+        with self.assertRaisesRegex(Exception, 'version 7.*not 6'):
+            ItemV7(b"\x06\x00\x00\x00")
 
     def test_get_keyclass(self):
         item = ItemV7(ITEM1_DATA)
@@ -73,49 +83,56 @@ class ItemV7Tests(TestCase):
     def test_get_secret_data_wrapped_key(self):
         item = ItemV7(ITEM1_DATA)
         self.assertEqual(
-            "48bb49dfd10d7313d654d828048fbf2d1cd0d5125d84716dca89beb3ff1f10d6ef44469b0380ca3d",
-            hexlify(item.encrypted_secret_data_wrapped_key))
+            b"48bb49dfd10d7313d654d828048fbf2d1cd0d5125d84716dca89beb3ff1f10d6ef44469b0380ca3d",
+            hexlify(item.encrypted_secret_data_wrapped_key),
+        )
 
     def test_decrypt_secret_data_fails_with_bad_class_key(self):
         item = ItemV7(ITEM1_DATA)
-        with self.assertRaises(AssertionError):
-            print 'integrity check fail expected:'
-            item.decrypt_secret_data('\x00' * 32)
+        with self.assertRaises((AssertionError, ValueError)):
+            print('integrity check fail expected:')
+            item.decrypt_secret_data(b'\x00' * 32)
 
     def test_decrypt_secret_data(self):
         item = ItemV7(ITEM1_DATA)
-        self.assertIn('foo-secret',
-            item.decrypt_secret_data(ITEM1_CLASS_KEY))
+        self.assertIn(b'foo-secret', item.decrypt_secret_data(ITEM1_CLASS_KEY))
 
     def test_decrypt_metadata(self):
         item = ItemV7(ITEM1_DATA)
-        self.assertIn('musr', item.decrypt_metadata(ITEM1_METADATA_CLASS_KEY))
+        self.assertIn(b'musr', item.decrypt_metadata(ITEM1_METADATA_CLASS_KEY))
 
-OBJ1 = {'$archiver': 'NSKeyedArchiver',
-        '$objects': ['$null',
-                     {'$class': Uid(5),
-                      'SFAuthenticationCode': Uid(3),
-                      'SFCiphertext': Uid(2),
-                      'SFInitializationVector': Uid(4)},
-                     b'abc'
-                     b'def',
-                     b'123',
-                     b'xyz'
-                     b'fgh',
-                     {'$classes': ['_SFAuthenticatedCiphertext',
-                                   '_SFCiphertext',
-                                   'NSObject'],
-                      '$classname': '_SFAuthenticatedCiphertext'}],
-        '$top': {'root': Uid(1)},
-        '$version': 100000}
+
+OBJ1 = {
+    '$archiver': 'NSKeyedArchiver',
+    '$objects': [
+        '$null',
+        {
+            '$class': Uid(5),
+            'SFAuthenticationCode': Uid(3),
+            'SFCiphertext': Uid(2),
+            'SFInitializationVector': Uid(4),
+        },
+        b'abcdef',
+        b'123',
+        b'xyzfgh',
+        {
+            '$classes': ['_SFAuthenticatedCiphertext', '_SFCiphertext', 'NSObject'],
+            '$classname': '_SFAuthenticatedCiphertext',
+        },
+    ],
+    '$top': {'root': Uid(1)},
+    '$version': 100000,
+}
+
 
 class NsKeyedArchiverTest(TestCase):
     def test_unpack(self):
         self.assertEqual(
             {
                 '$class': '_SFAuthenticatedCiphertext',
-                'SFAuthenticationCode': '123',
-                'SFCiphertext': 'abcdef',
-                'SFInitializationVector': 'xyzfgh',
+                'SFAuthenticationCode': b'123',
+                'SFCiphertext': b'abcdef',
+                'SFInitializationVector': b'xyzfgh',
             },
-            ns_keyed_unarchiver(OBJ1))
+            ns_keyed_unarchiver(OBJ1),
+        )

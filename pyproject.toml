@@ -1,0 +1,38 @@
+[project]
+name = "ichainbreaker"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "biplist>=1.0.3",
+    "hexdump>=3.3",
+    "protobuf>=3.20,<3.21",
+    "pyasn1>=0.6.1",
+    "pycryptodome>=3.23.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.2",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+exclude = [
+    "crypto/curve25519.py",
+    "crypto/gcm.py",
+    "itemv7_pb2.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "preserve"
+indent-style = "space"
+
+[project.scripts]
+ichainbreaker = "iChainbreaker:main"
