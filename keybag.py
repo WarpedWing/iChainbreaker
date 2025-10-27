@@ -264,6 +264,8 @@ class Keybag:
             return 'Escrow Keybag'
         elif typenum == 3:
             return 'iCloud Keybag'
+        else:
+            return f'Unknown Type ({typenum})'
 
     def get_wrap_type(self, wraptype):
         if wraptype == 0:
@@ -282,6 +284,23 @@ class Keybag:
         print(f" [-] salt : {self.keybag['salt']}")
         print(f" [-] iteration count : {self.keybag['iter']}")
         print(f" [-] Signature : {self.keybag['sign']}")
+
+    def debug_dump_raw_header(self):
+        """Debug helper to examine raw keybag structure"""
+        print('[+] Raw Keybag Header (first 200 bytes):')
+        print(f" [-] Header hex: {hexlify(self.fbuf[:200])}")
+        print('[+] TLV Structure Check:')
+        offset = 8  # Skip initial 'DATA' header
+        for i in range(10):  # Check first 10 TLVs
+            if offset + 8 > len(self.fbuf):
+                break
+            tag = self.fbuf[offset : offset + 4]
+            length = struct.unpack('>I', self.fbuf[offset + 4 : offset + 8])[0]
+            print(f" [-] TLV {i}: tag={tag!r} length={length}")
+            if offset + 8 + length > len(self.fbuf) or length > 1000:
+                print("     WARNING: Invalid length, stopping")
+                break
+            offset += 8 + length
 
     def generatepasscodekey(self, passcode):
         passcodekey_prf = pbkdf2(passcode, unhexlify(self.keybag['salt']), 1, 32, sha1)
@@ -374,6 +393,9 @@ class Keybag:
 
         if self.keybag['sign']:
             hmackey = AESUnwrap(self.devicekey, unhexlify(self.keybag['hmck']))
+            if not hmackey:
+                # AESUnwrap failed - likely wrong device key/UUID
+                return False
             sigcheck = hmac.new(key=hmackey, msg=self.keybag['data'], digestmod=sha1).digest()
             if hexlify(sigcheck) != self.keybag['sign']:
                 return False

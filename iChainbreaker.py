@@ -66,6 +66,12 @@ def main():
         required=False,
     )
     parser.add_argument('-v', '--version', nargs=1, help='macOS version(ex. 10.13)', required=True)
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Enable debug output (raw keybag structure)',
+        required=False,
+    )
 
     args = parser.parse_args()
 
@@ -135,16 +141,37 @@ def main():
     keybag.load_keybag_header()
     keybag.debug_print_header()
 
+    if args.debug:
+        keybag.debug_dump_raw_header()
+
+    # Try directory UUID first (pre-Sequoia behavior)
     devicekey = keybag.device_key_init(uuid.UUID(MachineUUID).bytes)
-    print(f'[*] The Device key : {hexlify(devicekey)}')
+    print(f'[*] Device key (from directory UUID): {hexlify(devicekey)}')
 
     bresult = keybag.device_key_validation()
 
     if bresult is False:
-        print('[!] Device Key validation : Failed. Maybe Invalid PlatformUUID')
-        return
+        # On Sequoia+, try the keybag's internal UUID instead
+        keybag_uuid = uuid.UUID(bytes=bytes(bytearray(keybag.keybag['uuid'])))
+        print(
+            f'[!] Device Key validation failed with directory UUID. '
+            f'Trying keybag internal UUID: {keybag_uuid}'
+        )
+        devicekey = keybag.device_key_init(keybag_uuid.bytes)
+        print(f'[*] Device key (from keybag UUID): {hexlify(devicekey)}')
+
+        bresult = keybag.device_key_validation()
+        if bresult is False:
+            print('[!] Device Key validation : Failed with both UUIDs')
+            print('[!] This may indicate:')
+            print('    - Incorrect keychain directory')
+            print('    - Corrupted keybag file')
+            print('    - Unsupported macOS version')
+            return
+        else:
+            print('[*] Device Key validation : Pass (using keybag UUID)')
     else:
-        print('[*] Device Key validation : Pass')
+        print('[*] Device Key validation : Pass (using directory UUID)')
 
     passcodekey = keybag.generatepasscodekey(args.key if args.key else getpass())
 
